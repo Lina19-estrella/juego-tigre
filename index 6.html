@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Juego del Tigre</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: sans-serif;
+      background-color: #e0f7fa;
+    }
+    #game {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background-color: #a7ffeb;
+      display: none;
+    }
+    .tigre {
+      position: absolute;
+      width: 80px;
+      height: 60px;
+      background-image: url('https://i.imgur.com/YUr8jsn.png'); /* Imagen de Tigre */
+      background-size: cover;
+      bottom: 0;
+      left: 50px;
+      transition: all 0.2s;
+    }
+    .estrella {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: gold;
+    }
+    #scoreboard {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 20px;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .controls {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      display: flex;
+      gap: 10px;
+    }
+    .control-btn {
+      width: 60px;
+      height: 60px;
+      font-size: 30px;
+      border: none;
+      border-radius: 10px;
+      background-color: #ffffffaa;
+      box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+    }
+    .control-btn:active {
+      background-color: #fff;
+    }
+    #pantalla-inicio, #pantalla-fin {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: #ffccbc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    #pantalla-inicio h1, #pantalla-fin h1 {
+      font-size: 3em;
+      margin-bottom: 30px;
+    }
+    #btn-inicio, #btn-reiniciar {
+      background-color: red;
+      color: white;
+      font-size: 30px;
+      padding: 15px 30px;
+      border: none;
+      border-radius: 15px;
+      cursor: pointer;
+      box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.4);
+    }
+    #btn-inicio:active, #btn-reiniciar:active {
+      background-color: darkred;
+    }
+    #pantalla-fin {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="pantalla-inicio">
+    <h1>🐯 Juego del Tigre</h1>
+    <button id="btn-inicio">▶️ Jugar</button>
+  </div>
+
+  <div id="pantalla-fin">
+    <h1 id="mensaje-final"></h1>
+    <button id="btn-reiniciar">🔁 Jugar de nuevo</button>
+  </div>
+
+  <div id="game">
+    <div id="scoreboard">Puntos: 0 | Tiempo: 2:30</div>
+    <div class="tigre" id="tigre"></div>
+
+    <div class="controls">
+      <button class="control-btn" id="btn-left">⬅️</button>
+      <button class="control-btn" id="btn-up">⬆️</button>
+      <button class="control-btn" id="btn-right">➡️</button>
+    </div>
+  </div>
+
+  <audio id="musica" loop>
+    <source src="https://vgmsite.com/soundtracks/mario-paint/gcnxtkrp/104%20Creative%20Exercise.mp3" type="audio/mpeg">
+    Tu navegador no soporta audio.
+  </audio>
+
+  <script>
+    const tigre = document.getElementById('tigre');
+    const game = document.getElementById('game');
+    const scoreboard = document.getElementById('scoreboard');
+    const musica = document.getElementById('musica');
+    const pantallaInicio = document.getElementById('pantalla-inicio');
+    const botonInicio = document.getElementById('btn-inicio');
+    const pantallaFin = document.getElementById('pantalla-fin');
+    const mensajeFinal = document.getElementById('mensaje-final');
+    const botonReiniciar = document.getElementById('btn-reiniciar');
+
+    let puntos = 0;
+    let tiempo = 150;
+    const velocidad = 10;
+    let enElAire = false;
+    let velocidadSalto = 0;
+    let gravedad = 1;
+
+    let juego, creadorEstrellas, reloj;
+
+    const colores = ['#00bcd4', '#4caf50', '#ff9800'];
+
+    botonInicio.addEventListener('click', () => {
+      pantallaInicio.style.display = 'none';
+      game.style.display = 'block';
+      musica.play();
+      iniciarJuego();
+    });
+
+    botonReiniciar.addEventListener('click', () => {
+      location.reload();
+    });
+
+    function iniciarJuego() {
+      juego = setInterval(() => {
+        aplicarGravedad();
+        detectarColisiones();
+      }, 30);
+
+      creadorEstrellas = setInterval(crearEstrella, 1000);
+
+      reloj = setInterval(() => {
+        tiempo--;
+        actualizarMarcador();
+        if (tiempo <= 0) {
+          juegoTerminado();
+        }
+      }, 1000);
+    }
+
+    function moverTigreClave(key) {
+      const pos = tigre.getBoundingClientRect();
+      if (key === 'ArrowRight') {
+        tigre.style.left = Math.min(pos.left + velocidad, window.innerWidth - 80) + 'px';
+      } else if (key === 'ArrowLeft') {
+        tigre.style.left = Math.max(pos.left - velocidad, 0) + 'px';
+      } else if (key === 'ArrowUp' && !enElAire) {
+        enElAire = true;
+        velocidadSalto = 20;
+      }
+    }
+
+    function aplicarGravedad() {
+      const bottom = parseInt(getComputedStyle(tigre).bottom);
+      if (enElAire) {
+        tigre.style.bottom = bottom + velocidadSalto + 'px';
+        velocidadSalto -= gravedad;
+        if (bottom <= 0) {
+          tigre.style.bottom = '0px';
+          enElAire = false;
+        }
+      }
+    }
+
+    function crearEstrella() {
+      const estrella = document.createElement('div');
+      estrella.className = 'estrella';
+      estrella.style.left = Math.random() * (window.innerWidth - 40) + 'px';
+      estrella.style.top = Math.random() * (window.innerHeight - 150) + 'px';
+      estrella.style.backgroundColor = colores[Math.floor(Math.random() * colores.length)];
+      game.appendChild(estrella);
+
+      setTimeout(() => {
+        if (estrella.parentNode) estrella.remove();
+      }, 7000);
+    }
+
+    function detectarColisiones() {
+      const estrellas = document.querySelectorAll('.estrella');
+      const tigreRect = tigre.getBoundingClientRect();
+
+      estrellas.forEach(e => {
+        const rect = e.getBoundingClientRect();
+        const colision = !(
+          tigreRect.right < rect.left ||
+          tigreRect.left > rect.right ||
+          tigreRect.bottom < rect.top ||
+          tigreRect.top > rect.bottom
+        );
+
+        if (colision) {
+          puntos++;
+          e.remove();
+          explotarEstrella(e);
+        }
+      });
+    }
+
+    function explotarEstrella(estrella) {
+      estrella.style.transition = 'transform 0.3s ease-out';
+      estrella.style.transform = 'scale(2)';
+      setTimeout(() => estrella.remove(), 300);
+    }
+
+    function actualizarMarcador() {
+      const minutos = Math.floor(tiempo / 60);
+      const segundos = tiempo % 60;
+      scoreboard.textContent = `Puntos: ${puntos} | Tiempo: ${minutos}:${segundos < 10 ? '0' + segundos : segundos}`;
+    }
+
+    function juegoTerminado() {
+      clearInterval(juego);
+      clearInterval(creadorEstrellas);
+      clearInterval(reloj);
+      musica.pause();
+      musica.currentTime = 0;
+      game.style.display = 'none';
+      pantallaFin.style.display = 'flex';
+      mensajeFinal.textContent = puntos >= 10 ? `¡Ganaste! 🎉 Puntos: ${puntos}` : `Inténtalo de nuevo 😅 Puntos: ${puntos}`;
+    }
+
+    document.addEventListener('keydown', e => moverTigreClave(e.key));
+    document.getElementById('btn-left').addEventListener('touchstart', () => moverTigreClave('ArrowLeft'));
+    document.getElementById('btn-right').addEventListener('touchstart', () => moverTigreClave('ArrowRight'));
+    document.getElementById('btn-up').addEventListener('touchstart', () => moverTigreClave('ArrowUp'));
+  </script>
+</body>
+</html>
